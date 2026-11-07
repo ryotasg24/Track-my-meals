@@ -2,6 +2,7 @@
  * データの型（基本設計書 4.1〜4.3）。
  * 時刻はエポックミリ秒（数値）、日付は記録日の YYYY-MM-DD 文字列で持つ。
  */
+import type { AdviceContent } from './advice';
 
 /** 同期の対象になるデータに共通の項目（F-DATA-08） */
 export interface SyncFields {
@@ -45,9 +46,12 @@ export interface MealItem {
   model: string | null;
 }
 
-/** AIの提案の文章 */
+/** AIの提案 */
 export interface Advice {
+  /** 文章にしたもの（整理した形がない古い記録では、これだけを表示する） */
   text: string;
+  /** 整理したおすすめ（2026-11-08 追加。古い記録にはない） */
+  content?: AdviceContent;
   model: string;
   createdAt: number;
 }
@@ -99,6 +103,8 @@ export interface Review extends SyncFields {
   localDate: string;
   kind: 'nextDay';
   text: string;
+  /** 整理した調整案（2026-11-08 追加。古い記録にはない） */
+  content?: AdviceContent;
   model: string;
 }
 

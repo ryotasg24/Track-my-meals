@@ -187,6 +187,7 @@ export function MealDetailPage() {
       {meal.status === 'done' && (
         <AdviceCard
           text={meal.advice?.text ?? null}
+          content={meal.advice?.content}
           loading={busy}
           intake={day.intake}
           target={target}

@@ -2,6 +2,7 @@
  * データの読み書き（基本設計書 4章）。画面からはここの関数だけを使う。
  * 時刻（now）は引数で受け取る。複数のテーブルを変える処理は1つのトランザクションで行う。
  */
+import type { AdviceContent } from '../domain/advice';
 import { toRecordDate } from '../domain/date';
 import { DEFAULT_MEAL_TYPE_STARTS } from '../domain/mealType';
 import { DEFAULT_TARGET_PLAN } from '../domain/target';
@@ -269,11 +270,18 @@ export async function deleteActivity(database: MealsDb, localDate: string, now: 
 }
 
 /** ふりかえりを保存する。同じ記録日は上書きする */
-export async function upsertReview(database: MealsDb, localDate: string, text: string, model: string, now: number): Promise<void> {
+export async function upsertReview(
+  database: MealsDb,
+  localDate: string,
+  text: string,
+  content: AdviceContent,
+  model: string,
+  now: number,
+): Promise<void> {
   await database.transaction('rw', database.reviews, async () => {
     const existing = (await database.reviews.where('localDate').equals(localDate).toArray()).find((r) => r.deleted === 0);
-    if (existing) await database.reviews.update(existing.id, { text, model, updatedAt: now });
-    else await database.reviews.add({ ...sync(now), localDate, kind: 'nextDay', text, model });
+    if (existing) await database.reviews.update(existing.id, { text, content, model, updatedAt: now });
+    else await database.reviews.add({ ...sync(now), localDate, kind: 'nextDay', text, content, model });
   });
 }
 

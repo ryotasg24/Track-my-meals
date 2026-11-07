@@ -1,0 +1,132 @@
+.summary {
+  margin: 0 0 12px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 16px 0 8px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-sub);
+}
+
+.levels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.level {
+  border-left: 4px solid;
+  border-radius: var(--radius-tile);
+  padding: 10px 12px;
+}
+
+.levelLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.recommend {
+  background: var(--color-level-recommend-bg);
+  border-left-color: var(--color-level-recommend);
+}
+
+.recommend .levelLabel,
+.recommend .itemIcon {
+  color: var(--color-level-recommend);
+}
+
+.ok {
+  background: var(--color-level-ok-bg);
+  border-left-color: var(--color-level-ok);
+}
+
+.ok .levelLabel,
+.ok .itemIcon {
+  color: var(--color-level-ok);
+}
+
+.limit {
+  background: var(--color-level-limit-bg);
+  border-left-color: var(--color-level-limit);
+}
+
+.limit .levelLabel,
+.limit .itemIcon {
+  color: var(--color-level-limit);
+}
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.9375rem;
+}
+
+.itemIcon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.itemName {
+  font-weight: 700;
+}
+
+.reason {
+  margin-left: 8px;
+  color: var(--color-text-sub);
+  font-size: 0.8125rem;
+}
+
+.menus {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.menu {
+  background: var(--color-surface);
+  border-radius: var(--radius-tile);
+  padding: 10px 12px;
+}
+
+.menuLabel {
+  margin: 0 0 4px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-primary-strong);
+}
+
+.list {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  font-size: 0.9375rem;
+}
+
+.list li + li {
+  margin-top: 2px;
+}
+
+.text {
+  white-space: pre-wrap;
+  font-size: 0.875rem;
+}

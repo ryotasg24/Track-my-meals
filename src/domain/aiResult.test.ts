@@ -1,21 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { checkAdviceResult, checkAnalyzeResult } from './aiResult';
 
+const goodAdvice = {
+  summary: '夕食は魚がおすすめ',
+  categories: [{ category: 'fish', level: 'recommend', reason: 'たんぱく質' }],
+  menus: [{ label: '案1', dishes: ['鮭の塩焼き'] }],
+  points: [],
+};
+
 const goodItem = { name: '白ご飯', amount: 150, unit: 'g', kcal: 234, protein: 3.8, fat: 0.5, carbs: 55.7, fiber: 0.5, salt: 0 };
 
 describe('AIの回答のチェック（基本設計書 5.8）', () => {
   it('正しい回答は通る', () => {
-    const r = checkAnalyzeResult({ isFood: true, reason: '', items: [goodItem], advice: 'おすすめ' });
+    const r = checkAnalyzeResult({ isFood: true, reason: '', items: [goodItem], advice: goodAdvice });
     expect(r.ok).toBe(true);
     if (r.ok && r.value.isFood) {
       expect(r.value.items[0]?.nutrients.kcal).toBe(234);
-      expect(r.value.advice).toBe('おすすめ');
+      expect(r.value.advice).toEqual(goodAdvice);
     }
   });
 
   it('料理でない場合は理由を返す', () => {
     const r = checkAnalyzeResult({ isFood: false, reason: '料理が写っていません', items: [], advice: '' });
-    expect(r).toEqual({ ok: true, value: { isFood: false, reason: '料理が写っていません', advice: '' } });
+    expect(r).toEqual({ ok: true, value: { isFood: false, reason: '料理が写っていません', advice: null } });
+  });
+
+  it('おすすめの形がおかしくても、推定の結果は通す（おすすめはnull）', () => {
+    const r = checkAnalyzeResult({ isFood: true, reason: '', items: [goodItem], advice: { summary: '' } });
+    expect(r.ok && r.value.advice).toBeNull();
   });
 
   it('料理なのに品目が0はエラー', () => {
@@ -52,8 +64,9 @@ describe('AIの回答のチェック（基本設計書 5.8）', () => {
     expect(checkAnalyzeResult({ items: [] }).ok).toBe(false);
   });
 
-  it('おすすめの文章のチェック', () => {
-    expect(checkAdviceResult({ advice: ' 夕食は魚を ' })).toEqual({ ok: true, value: '夕食は魚を' });
-    expect(checkAdviceResult({ advice: '' }).ok).toBe(false);
+  it('おすすめのチェック', () => {
+    expect(checkAdviceResult({ advice: goodAdvice })).toEqual({ ok: true, value: goodAdvice });
+    expect(checkAdviceResult({ advice: '夕食は魚を' }).ok).toBe(false);
+    expect(checkAdviceResult({ advice: { ...goodAdvice, categories: [], menus: [] } }).ok).toBe(false);
   });
 });

@@ -2,6 +2,7 @@
  * AIへの指示文と回答の形（基本設計書 6.3）。指示文はこのファイルにまとめる（要件定義書 5章 保守性）。
  * 名前・ニックネーム・生年月日などの個人の情報は送らない（要件定義書 1.3 方針4）。
  */
+import { adviceVocabulary } from '../domain/advice';
 import { MEAL_TYPE_LABELS } from '../domain/mealType';
 import { formatNutrient } from '../domain/nutrition';
 import type { MealType, Nutrients } from '../domain/types';
@@ -12,6 +13,42 @@ export const SYSTEM_INSTRUCTION = [
   '提案は一般的な食事の目安にとどめ、病気の治療や医療に関する助言はしないでください。',
   '親しみやすく前向きな言葉で、短くわかりやすく書いてください。',
 ].join('\n');
+
+/**
+ * おすすめの形（domain/advice.ts の AdviceContent）。
+ * 種類・おすすめ度は enum を使わず、指示文で選ばせて、受け取ったあとにチェックする（未知の値は捨てる）。
+ */
+const ADVICE_CONTENT_SCHEMA = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    categories: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          category: { type: 'string' },
+          level: { type: 'string' },
+          reason: { type: 'string' },
+        },
+        required: ['category', 'level', 'reason'],
+      },
+    },
+    menus: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          label: { type: 'string' },
+          dishes: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['label', 'dishes'],
+      },
+    },
+    points: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['summary', 'categories', 'menus', 'points'],
+};
 
 /** analyzeMeal の回答の形 */
 export const ANALYZE_SCHEMA = {
@@ -37,7 +74,7 @@ export const ANALYZE_SCHEMA = {
         required: ['name', 'amount', 'unit', 'kcal', 'protein', 'fat', 'carbs', 'fiber', 'salt'],
       },
     },
-    advice: { type: 'string' },
+    advice: ADVICE_CONTENT_SCHEMA,
   },
   required: ['isFood', 'reason', 'items', 'advice'],
 };
@@ -45,7 +82,7 @@ export const ANALYZE_SCHEMA = {
 /** writeAdvice の回答の形 */
 export const ADVICE_SCHEMA = {
   type: 'object',
-  properties: { advice: { type: 'string' } },
+  properties: { advice: ADVICE_CONTENT_SCHEMA },
   required: ['advice'],
 };
 
@@ -90,6 +127,18 @@ function contextLines(c: DayContext, intakeLabel: string): string[] {
   return lines;
 }
 
+/** 次の食事のおすすめの書き方（analyzeMeal と writeAdvice で共通） */
+function nextMealAdviceLines(): string[] {
+  return [
+    'advice は次の形で、短くわかりやすく書いてください。',
+    '- summary：次の食事で一番大事なことを一言（30文字以内。例：「夕食はたんぱく質をしっかり」）。',
+    '- categories：次の食事で、食べ物の種類ごとのおすすめ度を4〜6個。足りない栄養素を補えるものは recommend、目標に余裕があり食べても大丈夫なものは ok、目標を超えそう・超えたものに関係するものは limit。reason は15文字以内（例：「たんぱく質を補える」「脂質にまだ余裕」「塩分がもう多め」）。',
+    adviceVocabulary(),
+    '- menus：具体的な献立の例を2〜3案。label は「案1」「案2」…、dishes は料理名を1品ずつ（2〜4品。量の目安があれば料理名に添える。例：「鮭の塩焼き（1切れ）」）。',
+    '- points：補足を1〜3個（各40文字以内）。不足・控えるべき栄養素と、その量の目安など。',
+  ];
+}
+
 /** 写真・文章から推定し、同時におすすめを作る指示（analyzeMeal） */
 export function buildAnalyzePrompt(c: DayContext, inputText: string | null): string {
   return [
@@ -97,7 +146,8 @@ export function buildAnalyzePrompt(c: DayContext, inputText: string | null): str
     '量は写真の器の大きさなどから推定し、単位は g、ml、杯、個、枚、本、皿、人前 などを使ってください。',
     '料理や食品が含まれていない場合は isFood を false にし、reason に理由を書き、items は空にしてください。',
     ...contextLines(c, 'この食事より前の今日の摂取量'),
-    'advice には、この食事を含めた今日の摂取量を踏まえて、次の食事のおすすめを書いてください。不足している栄養素・控えるべき栄養素と、具体的な献立の例を2〜3案、400文字程度で。',
+    'advice には、この食事を含めた今日の摂取量を踏まえて、次の食事のおすすめを書いてください。料理でない場合も、advice の形は守ってください。',
+    ...nextMealAdviceLines(),
     inputText ? `食事の内容（利用者が入力した文章）：${inputText}` : '',
   ]
     .filter(Boolean)
@@ -108,7 +158,8 @@ export function buildAnalyzePrompt(c: DayContext, inputText: string | null): str
 export function buildNextMealPrompt(c: DayContext): string {
   return [
     ...contextLines(c, '今日のこれまでの摂取量'),
-    '次の食事のおすすめを advice に書いてください。不足している栄養素・控えるべき栄養素と、具体的な献立の例を2〜3案、400文字程度で。',
+    '次の食事のおすすめを advice に書いてください。',
+    ...nextMealAdviceLines(),
   ].join('\n');
 }
 
@@ -133,7 +184,12 @@ export function buildReviewPrompt(c: DayReviewContext): string {
     `${label}の摂取量：${nutrientLine(c.intake)}。`,
     `${label}食べたもの：${c.itemNames.length ? c.itemNames.join('、') : '記録なし'}。`,
     c.preferences.trim() ? `好み・事情：${c.preferences.trim()}。` : '',
-    `advice に、${label}の良かった点と課題を短くまとめ、${next}の食事の調整案（朝・昼・夕の具体的な献立の例を含む）を600文字程度で書いてください。`,
+    `advice に、${label}のふりかえりと、${next}の食事の調整案を、次の形で短くわかりやすく書いてください。`,
+    `- summary：${next}の食事で一番大事なことを一言（30文字以内）。`,
+    `- categories：${next}の食事で、食べ物の種類ごとのおすすめ度を4〜6個。${label}足りなかった栄養素を補えるものは recommend、問題なく食べてよいものは ok、${label}超えた栄養素に関係するものは limit。reason は15文字以内。`,
+    adviceVocabulary(),
+    `- menus：${next}の朝食・昼食・夕食の献立の例。label は「朝食」「昼食」「夕食」、dishes は料理名を1品ずつ（2〜4品）。`,
+    `- points：${label}の良かった点と課題を2〜3個（各40文字以内。良かった点を先に）。`,
   ]
     .filter(Boolean)
     .join('\n');

@@ -85,6 +85,7 @@ export function HomePage() {
         </div>
         <AdviceCard
           text={latestAdvice?.text ?? null}
+          content={latestAdvice?.content}
           intake={day.intake}
           target={day.target.ok ? day.target.result.target : null}
           note={day.meals.length === 0 ? '食事を記録すると、次の食事のおすすめが表示されます。' : '今日の残りの目安です。'}

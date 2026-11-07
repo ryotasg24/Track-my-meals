@@ -43,6 +43,14 @@
   --color-notice-warn: var(--color-nut-fat);
   --color-notice-info: var(--color-primary-strong);
 
+  /* おすすめ度（6章）：おすすめ＝炭水化物の緑、食べてOK＝たんぱく質の青、控えめに＝食塩の赤。ダークでも栄養素の色に合わせて変わる */
+  --color-level-recommend: var(--color-nut-carbs);
+  --color-level-recommend-bg: var(--color-nut-carbs-bg);
+  --color-level-ok: var(--color-nut-protein);
+  --color-level-ok-bg: var(--color-nut-protein-bg);
+  --color-level-limit: var(--color-nut-salt);
+  --color-level-limit-bg: var(--color-nut-salt-bg);
+
   --shadow-card: 0 2px 0 rgb(58 36 24 / 5%);
   --radius-card: 24px;
   --radius-tile: 16px;

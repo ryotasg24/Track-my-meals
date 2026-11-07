@@ -2,6 +2,7 @@
  * AIの回答のチェック（要件定義書 F-AI-06、基本設計書 5.8）。
  * AIの回答の形の指定では文字数などの細かい条件が無視されるため、保存する前に必ずここを通す。
  */
+import { checkAdviceContent, type AdviceContent } from './advice';
 import type { Nutrients } from './types';
 
 /** AIが推定した品目 */
@@ -14,8 +15,8 @@ export interface AiItem {
 
 /** analyzeMeal の回答（基本設計書 6.3） */
 export type AnalyzeResult =
-  | { isFood: true; items: AiItem[]; advice: string }
-  | { isFood: false; reason: string; advice: string };
+  | { isFood: true; items: AiItem[]; advice: AdviceContent | null }
+  | { isFood: false; reason: string; advice: AdviceContent | null };
 
 export type CheckResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -46,7 +47,8 @@ function isNum(v: unknown): v is number {
  */
 export function checkAnalyzeResult(json: unknown): CheckResult<AnalyzeResult> {
   if (!isObject(json) || typeof json.isFood !== 'boolean') return { ok: false, error: '回答の形が違います' };
-  const advice = typeof json.advice === 'string' ? json.advice.trim() : '';
+  // おすすめの形がおかしくても、推定の結果は使う（おすすめは数値の一覧で代わりに表示する）
+  const advice = checkAdviceContent(json.advice);
 
   if (!json.isFood) {
     const reason = typeof json.reason === 'string' && json.reason.trim() ? json.reason.trim() : '料理が見つかりませんでした';
@@ -74,10 +76,8 @@ export function checkAnalyzeResult(json: unknown): CheckResult<AnalyzeResult> {
   return { ok: true, value: { isFood: true, items, advice } };
 }
 
-/** writeAdvice の回答（{ advice: 文字列 }）をチェックする */
-export function checkAdviceResult(json: unknown): CheckResult<string> {
-  if (!isObject(json) || typeof json.advice !== 'string' || !json.advice.trim()) {
-    return { ok: false, error: '回答の形が違います' };
-  }
-  return { ok: true, value: json.advice.trim() };
+/** writeAdvice の回答（{ advice: おすすめ }）をチェックする */
+export function checkAdviceResult(json: unknown): CheckResult<AdviceContent> {
+  const advice = isObject(json) ? checkAdviceContent(json.advice) : null;
+  return advice ? { ok: true, value: advice } : { ok: false, error: '回答の形が違います' };
 }

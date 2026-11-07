@@ -19,6 +19,7 @@ import {
   setMeta,
   upsertReview,
 } from '../db/repositories';
+import { adviceToText } from '../domain/advice';
 import { targetForDate } from '../domain/day';
 import { formatTime } from '../domain/format';
 import { remainingMealTypes } from '../domain/mealType';
@@ -146,7 +147,8 @@ export async function analyzePending(mealId: string, signal?: AbortSignal): Prom
     favoriteId: null,
     model: result.model,
   }));
-  const advice = result.value.advice ? { text: result.value.advice, model: result.model, createdAt: now } : null;
+  const content = result.value.advice;
+  const advice = content ? { text: adviceToText(content), content, model: result.model, createdAt: now } : null;
   await completeMealAnalysis(db, mealId, items, advice, now);
   return { kind: 'done', mealId };
 }
@@ -175,7 +177,7 @@ export async function refreshMealAdvice(mealId: string): Promise<string | null> 
   });
   await setMeta(db, 'modelCooldown', cooldown);
   if (!result.ok) return failureText(result.kind);
-  await setMealAdvice(db, mealId, { text: result.value, model: result.model, createdAt: Date.now() }, Date.now());
+  await setMealAdvice(db, mealId, { text: adviceToText(result.value), content: result.value, model: result.model, createdAt: Date.now() }, Date.now());
   return null;
 }
 
@@ -201,6 +203,6 @@ export async function createReview(localDate: string, forDay: DayReviewContext['
   });
   await setMeta(db, 'modelCooldown', cooldown);
   if (!result.ok) return failureText(result.kind);
-  await upsertReview(db, localDate, result.value, result.model, Date.now());
+  await upsertReview(db, localDate, adviceToText(result.value), result.value, result.model, Date.now());
   return null;
 }

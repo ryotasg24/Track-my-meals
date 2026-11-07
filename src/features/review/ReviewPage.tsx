@@ -54,6 +54,7 @@ export function ReviewPage() {
       <AdviceCard
         title={title}
         text={review?.text ?? null}
+        content={review?.content}
         loading={state.loading}
         intake={day.intake}
         target={target}

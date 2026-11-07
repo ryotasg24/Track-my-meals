@@ -24,7 +24,7 @@ export function DayPage() {
       <div className={styles.columns}>
         <div className={styles.column}>
           <DaySummaryCard day={day} />
-          {review && <AdviceCard title="翌日への調整案" text={review.text} />}
+          {review && <AdviceCard title="翌日への調整案" text={review.text} content={review.content} />}
         </div>
         <div className={styles.column}>
           <Card title="食事">

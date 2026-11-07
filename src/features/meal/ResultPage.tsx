@@ -73,6 +73,7 @@ export function ResultPage() {
       </Card>
       <AdviceCard
         text={meal.advice?.text ?? null}
+        content={meal.advice?.content}
         loading={adviceState.loading}
         intake={day.intake}
         target={target}

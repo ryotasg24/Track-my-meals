@@ -2,6 +2,7 @@
  * AI層の窓口（基本設計書 2.3）。画面からは analyzeMeal と writeAdvice だけを使う。
  * ほかのAI（Claude APIなど）に差し替えるときは、この層だけを変える。
  */
+import type { AdviceContent } from '../domain/advice';
 import { checkAdviceResult, checkAnalyzeResult, type AnalyzeResult } from '../domain/aiResult';
 import type { ModelCooldown } from '../domain/quota';
 import { runWithFallback, type Attempt, type FallbackResult } from './fallback';
@@ -77,8 +78,8 @@ export type AdviceRequest =
   | { kind: 'nextMeal'; context: DayContext }
   | { kind: 'review'; context: DayReviewContext };
 
-/** 提案の文章を作る（F-ADV-01〜03） */
-export async function writeAdvice(config: AiConfig, request: AdviceRequest): Promise<FallbackResult<string>> {
+/** 提案を作る（F-ADV-01〜03） */
+export async function writeAdvice(config: AiConfig, request: AdviceRequest): Promise<FallbackResult<AdviceContent>> {
   const text = request.kind === 'nextMeal' ? buildNextMealPrompt(request.context) : buildReviewPrompt(request.context);
   return runWithFallback({
     primary: config.primaryModel,
