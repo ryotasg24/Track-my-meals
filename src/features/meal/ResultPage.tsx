@@ -1,0 +1,91 @@
+/**
+ * 読み取り結果（基本設計書 3.3 画面3、デザイン仕様書 7.4）。
+ */
+import { IconInfoCircle } from '@tabler/icons-react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router';
+import { mealTotal } from '../../domain/nutrition';
+import { AdviceCard } from '../../ui/AdviceCard';
+import { Button } from '../../ui/Button';
+import { Card, Sub } from '../../ui/Card';
+import { CalorieRing } from '../../ui/nutrition/CalorieRing';
+import { NutrientTiles } from '../../ui/nutrition/NutrientTiles';
+import { PageHeader } from '../../ui/PageHeader';
+import { Thumbnail } from '../../ui/Thumbnail';
+import { refreshMealAdvice } from '../aiActions';
+import { useDay, useMeal } from '../hooks';
+import styles from '../page.module.css';
+import { ItemList } from './ItemList';
+
+export function ResultPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const meal = useMeal(id);
+  const day = useDay(meal?.localDate);
+  const [adviceState, setAdviceState] = useState<{ loading: boolean; note: string | null }>({ loading: false, note: null });
+  const requested = useRef(false);
+
+  // よく食べるもの・手入力で保存した直後は、おすすめを作る（F-ADV-01）
+  const shouldRefresh = (location.state as { refreshAdvice?: boolean } | null)?.refreshAdvice === true;
+  useEffect(() => {
+    if (!shouldRefresh || !id || requested.current) return;
+    requested.current = true;
+    setAdviceState({ loading: true, note: null });
+    void refreshMealAdvice(id).then((note) => setAdviceState({ loading: false, note }));
+  }, [shouldRefresh, id]);
+
+  if (meal === undefined || !day) return null;
+  if (meal === null) {
+    return (
+      <div className={styles.page}>
+        <PageHeader title="読み取り結果" nav="close" to="/" />
+        <p className={styles.empty}>記録が見つかりません。</p>
+      </div>
+    );
+  }
+
+  const hasAiItems = meal.items.some((i) => i.source === 'photo' || i.source === 'text');
+  const target = day.target.ok ? day.target.result.target : null;
+
+  return (
+    <div className={styles.page}>
+      <PageHeader title="読み取り結果" nav="close" to="/" />
+      <Card>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+          <Thumbnail blob={meal.thumbnail} alt="食事の写真" size={88} />
+          {meal.inputText && <p style={{ margin: 0 }}>「{meal.inputText}」</p>}
+        </div>
+        <ItemList items={meal.items} />
+        {hasAiItems && (
+          <Sub>
+            <IconInfoCircle size={14} style={{ verticalAlign: '-2px' }} aria-hidden="true" /> AIによる推定値です。写真だけでは量の推定がずれやすいため、違っていたら修正してください。
+          </Sub>
+        )}
+      </Card>
+      <Card title="この食事の合計">
+        <NutrientTiles intake={mealTotal(meal)} target={null} />
+        <Sub>カロリー {Math.round(mealTotal(meal).kcal).toLocaleString('ja-JP')}kcal</Sub>
+      </Card>
+      <Card title="今日の状況">
+        <CalorieRing intake={day.intake.kcal} target={target?.kcal ?? null} size={84} />
+        <NutrientTiles intake={day.intake} target={target} />
+      </Card>
+      <AdviceCard
+        text={meal.advice?.text ?? null}
+        loading={adviceState.loading}
+        intake={day.intake}
+        target={target}
+        note={adviceState.note ?? 'おすすめを作れなかったため、今日の残りの目安を表示しています。'}
+      />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Button variant="secondary" onClick={() => void navigate(`/meal/${meal.id}`, { replace: true })}>
+          修正する
+        </Button>
+        <Button variant="primary" style={{ flex: 1 }} onClick={() => void navigate('/', { replace: true })}>
+          閉じる
+        </Button>
+      </div>
+    </div>
+  );
+}

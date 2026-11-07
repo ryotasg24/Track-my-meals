@@ -10,7 +10,7 @@
 - **サーバーなし**：データは端末内のIndexedDBにだけ保存する。AIは、利用者が設定画面に入力した自分のAPIキーで、端末からGemini APIを直接呼び出す（無料枠を使う）。
 - **公開先**：GitHub Pages（https://ryotasg24.github.io/Track-my-meals/ 。リポジトリはまだ作っていない）。
 - **アプリの名前**：ごはんくん（ホーム画面に表示される名前）。
-- **進み具合**：要件定義（第1.4版）・基本設計（第1.4版）・デザイン仕様書（第1.0版）が完了。次は実装（リポジトリ `Track-my-meals` の作成から）。ブラウザからGemini APIを直接呼び出せることは、PCとiPhone実機（ホーム画面から起動）で確認済み（`Api-Revision` ヘッダーは送れない。基本設計書 6.1）。
+- **進み具合**：要件定義（第1.4版）・基本設計（第1.5版）・デザイン仕様書（第1.1版）が完了。全画面を実装し、GitHub Pagesに公開。ブラウザからGemini APIを直接呼び出せることは、PCとiPhone実機（ホーム画面から起動）で確認済み（`Api-Revision` ヘッダーは送れない。基本設計書 6.1）。
 - **デザイン**：ほどよくポップ。メインの色はテラコッタ（塗り `#E2643F`、文字・線 `#B8452A`）。ライトモードでは、メインの色の塗りの上に白い文字を置くのは20px以上の太字だけにする（コントラスト比3.43:1のため。デザイン仕様書 3.1）。
 - **素材**：アイコンは Tabler Icons（MIT）。アプリのアイコンは `bowl-chopsticks`。素材を追加するときは、公開リポジトリで再配布できるライセンスか確認し、`public/third-party-licenses.txt` に追記する。
 - **AIのモデル**：普段は `gemini-3.5-flash-lite`、使えないときは `gemini-3.8-flash`（基本設計書 6.2）。
@@ -34,7 +34,7 @@
 
 ### 技術構成
 
-TypeScript、React、Vite、vite-plugin-pwa、Dexie.js（IndexedDB）、@google/genai（Gemini API）、Chart.js、date-fns、Tabler Icons、Vitest、fake-indexeddb。画面の切り替えはReact Routerのハッシュ方式（`#/calendar`）を使う。
+TypeScript、React、Vite、vite-plugin-pwa、Dexie.js（IndexedDB）、Gemini API（fetchで直接呼び出す。公式の部品は使わない。基本設計書 2.1）、Chart.js、date-fns、Tabler Icons、Vitest、fake-indexeddb。画面の切り替えはReact Routerのハッシュ方式（`#/calendar`）を使う。
 
 ### フォルダ構成（予定。詳しくは基本設計書 2.3）
 

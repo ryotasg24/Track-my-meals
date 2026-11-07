@@ -1,0 +1,62 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 150ms var(--ease);
+}
+
+.chip:active {
+  transform: scale(0.95);
+}
+
+/*
+ * 選択中（区分）：濃いメインの色の塗り＋白い文字（ライト 5.35:1）。
+ * コーラル（--color-primary）の上の白い文字は20px以上に限るため、16pxの文字のチップでは濃い色を使う
+ */
+.fill {
+  background: var(--color-primary-strong);
+  border-color: var(--color-primary-strong);
+  color: var(--color-on-primary-strong);
+  font-weight: 800;
+}
+
+.tint {
+  background: var(--color-primary-tint);
+  border-color: var(--color-primary-tint);
+  color: var(--color-primary-strong);
+  font-weight: 800;
+}
+
+@media (hover: hover) {
+  .chip:not(.fill):not(.tint):hover {
+    background: var(--color-hover);
+  }
+}
+
+.group + .group {
+  margin-top: 12px;
+}
+
+.label {
+  color: var(--color-text-sub);
+  font-size: 0.8125rem;
+  margin-bottom: 4px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

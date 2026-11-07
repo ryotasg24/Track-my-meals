@@ -1,0 +1,191 @@
+/* 画面で共通に使う配置（デザイン仕様書 5章、7章） */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ワイドでは2列にする（基本設計書 3.4） */
+.columns {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list > li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.list > li:last-child {
+  border-bottom: none;
+}
+
+.label {
+  color: var(--color-text-sub);
+  font-size: 0.8125rem;
+}
+
+.dateLine {
+  color: var(--color-text-sub);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.cameraRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cameraRow > :first-child {
+  flex: 1;
+}
+
+/* 丸い追加ボタン（64px） */
+.roundButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-primary-tint);
+  color: var(--color-primary-strong);
+  cursor: pointer;
+  transition: transform 150ms var(--ease);
+}
+
+.roundButton:active {
+  transform: scale(0.95);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.bottomBar {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, var(--color-bg) 30%);
+}
+
+.empty {
+  color: var(--color-text-sub);
+  text-align: center;
+  padding: 16px 0;
+}
+
+.itemLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+
+.itemLine > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemName {
+  font-weight: 600;
+}
+
+.itemMeta {
+  font-size: 0.8125rem;
+  color: var(--color-text-sub);
+}
+
+.kcal {
+  font-family: var(--font-rounded);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 読み取り中（デザイン仕様書 6章、10.1） */
+.analyzing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 0;
+  color: var(--color-primary-strong);
+  text-align: center;
+}
+
+.bob {
+  animation: bob 1200ms ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-weight: 700;
+  animation: toastIn 200ms var(--ease);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}

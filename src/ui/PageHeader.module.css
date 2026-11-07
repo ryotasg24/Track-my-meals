@@ -1,0 +1,36 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+  margin-bottom: 4px;
+}
+
+.header h1 {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -8px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--color-primary-strong);
+  cursor: pointer;
+  transition: transform 150ms var(--ease);
+}
+
+.nav:active {
+  transform: scale(0.9);
+}
+
+.aside {
+  flex: none;
+}

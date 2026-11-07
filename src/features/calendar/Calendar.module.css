@@ -1,0 +1,135 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.header h2 {
+  flex: 1;
+  text-align: center;
+}
+
+.navButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-primary-tint);
+  color: var(--color-primary-strong);
+  cursor: pointer;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--color-text-sub);
+  padding: 4px 0;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  min-height: 48px;
+  padding-top: 6px;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 150ms ease;
+}
+
+@media (hover: hover) {
+  .cell:hover {
+    background: var(--color-hover);
+  }
+}
+
+.other {
+  opacity: 0.4;
+}
+
+.dayNum {
+  font-family: var(--font-rounded);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  width: 26px;
+  text-align: center;
+  border-radius: 999px;
+}
+
+/* 今日：太字＋濃いメインの色の枠 */
+.today .dayNum {
+  font-weight: 800;
+  box-shadow: 0 0 0 2px var(--color-primary-strong);
+}
+
+.mark {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+}
+
+.within {
+  border-radius: 999px;
+  background: var(--color-primary-strong);
+}
+
+.under {
+  border-radius: 999px;
+  border: 2px solid var(--color-text-sub);
+}
+
+.over {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 10px solid var(--color-danger);
+}
+
+/* 目標が計算できない日に記録がある場合 */
+.recorded {
+  border-radius: 2px;
+  background: var(--color-text-sub);
+  width: 8px;
+  height: 8px;
+}
+
+.cell .mark {
+  margin-right: 0;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 12px;
+  font-size: 0.8125rem;
+  color: var(--color-text-sub);
+}
+
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+}

@@ -1,0 +1,167 @@
+/*
+ * 全体の基本スタイル（デザイン仕様書 3〜5章）。画面側では色を直接書かず、ここのCSS変数を使う。
+ * ダークモードは端末の設定に合わせて自動で切り替える。
+ */
+:root {
+  color-scheme: light dark;
+
+  /* 基本の色（3.1） */
+  --color-bg: #fff5ec;
+  --color-surface: #ffffff;
+  --color-text: #3a2418;
+  --color-text-sub: #7a6458;
+  --color-border: #f1e2d6;
+  --color-hover: #fbede3;
+
+  /*
+   * メインの色：テラコッタ。塗りは明るいコーラル、文字・線は濃いテラコッタ。
+   * ライトモードでは、コーラルの上の白い文字は20px以上の太字だけに使う（コントラスト比3.43:1）。
+   */
+  --color-primary: #e2643f;
+  --color-on-primary: #ffffff;
+  --color-primary-strong: #b8452a;
+  --color-on-primary-strong: #ffffff;
+  --color-primary-tint: #fde9e0;
+  --color-primary-track: #f6d9cb;
+  --color-danger: #c53030;
+
+  /* 栄養素の色（3.2） */
+  --color-nut-kcal: var(--color-primary-strong);
+  --color-nut-kcal-bg: var(--color-primary-tint);
+  --color-nut-protein: #2f5fa8;
+  --color-nut-protein-bg: #e6eefb;
+  --color-nut-fat: #9a6100;
+  --color-nut-fat-bg: #fdf0d5;
+  --color-nut-carbs: #2f7a44;
+  --color-nut-carbs-bg: #e3f3e6;
+  --color-nut-fiber: #6a47a8;
+  --color-nut-fiber-bg: #efe8fa;
+  --color-nut-salt: #b42318;
+  --color-nut-salt-bg: #fde7e4;
+
+  /* お知らせの帯（6章）：注意は脂質の色（黄土色） */
+  --color-notice-warn: var(--color-nut-fat);
+  --color-notice-info: var(--color-primary-strong);
+
+  --shadow-card: 0 2px 0 rgb(58 36 24 / 5%);
+  --radius-card: 24px;
+  --radius-tile: 16px;
+  --radius-control: 14px;
+
+  /* 文字の種類（4章）：丸み（数字・見出し）と標準 */
+  --font-rounded: ui-rounded, 'Hiragino Maru Gothic ProN', -apple-system, BlinkMacSystemFont, 'Hiragino Sans',
+    'Yu Gothic UI', 'Meiryo', sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI',
+    'Meiryo', sans-serif;
+
+  /* 動き（10.1） */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1b1411;
+    --color-surface: #271e1a;
+    --color-text: #f7eee8;
+    --color-text-sub: #bfaea4;
+    --color-border: #3b2e28;
+    --color-hover: #33271f;
+    --color-primary: #ff8a65;
+    --color-on-primary: #2a120a;
+    --color-primary-strong: #ff9d7e;
+    --color-on-primary-strong: #2a120a;
+    --color-primary-tint: #3a241c;
+    --color-primary-track: #3f2c24;
+    --color-danger: #f28b82;
+    --color-nut-protein: #a9c4f2;
+    --color-nut-protein-bg: #1f2b40;
+    --color-nut-fat: #f0c470;
+    --color-nut-fat-bg: #3a2e14;
+    --color-nut-carbs: #9ad3a8;
+    --color-nut-carbs-bg: #1b3323;
+    --color-nut-fiber: #c7b3ee;
+    --color-nut-fiber-bg: #2c2340;
+    --color-nut-salt: #f5a39a;
+    --color-nut-salt-bg: #3e1e1b;
+    --shadow-card: none;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+h1 {
+  font-family: var(--font-rounded);
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0 0 12px;
+}
+
+h2 {
+  font-family: var(--font-rounded);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 8px;
+}
+
+p {
+  margin: 0 0 8px;
+}
+
+a {
+  color: var(--color-primary-strong);
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary-strong);
+  outline-offset: 2px;
+}
+
+/* 数字は桁がずれないよう等幅にする */
+.num {
+  font-family: var(--font-rounded);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 画面読み上げだけに伝える文字 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

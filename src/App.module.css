@@ -1,0 +1,286 @@
+/*
+ * レイアウトの切り替え（基本設計書 3.4）と、画面遷移のアニメーション（デザイン仕様書 10.1）。
+ * コンパクト（既定）：1列＋画面下部のタブ
+ * ワイド（幅768px以上かつ高さ600px以上）：左側のメニュー
+ */
+.layout {
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+}
+
+.main {
+  padding: 16px;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  overflow-x: clip;
+}
+
+.focusLayout {
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+}
+
+.focusMain {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  overflow-x: clip;
+}
+
+/* ---------- 画面遷移 ---------- */
+.page {
+  animation-duration: 280ms;
+  animation-timing-function: var(--ease);
+  animation-fill-mode: both;
+}
+
+.push {
+  animation-name: fromRight;
+}
+
+.pop {
+  animation-name: fromLeft;
+}
+
+.tabForward {
+  animation-name: tabFromRight;
+  animation-duration: 240ms;
+}
+
+.tabBack {
+  animation-name: tabFromLeft;
+  animation-duration: 240ms;
+}
+
+.sheet {
+  animation-name: sheetUp;
+  animation-duration: 320ms;
+}
+
+.fade {
+  animation-name: fadeIn;
+  animation-duration: 200ms;
+}
+
+/* 画面の中のカードを、上から順に40msずつ遅らせて表示する（最大200ms） */
+.page > * > * {
+  animation: rise 220ms var(--ease) both;
+}
+
+.page > * > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.page > * > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.page > * > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+
+.page > * > *:nth-child(5) {
+  animation-delay: 160ms;
+}
+
+.page > * > *:nth-child(n + 6) {
+  animation-delay: 200ms;
+}
+
+@keyframes fromRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tabFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tabFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- タブ（コンパクト） ---------- */
+.nav {
+  position: fixed;
+  inset: auto 12px calc(8px + env(safe-area-inset-bottom)) 12px;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 6px 4px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 4px 16px rgb(58 36 24 / 10%);
+}
+
+.navItem,
+.navActive {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  font-size: 0.6875rem;
+  color: var(--color-text-sub);
+  text-decoration: none;
+  transition: color 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 選んでいるタブは、アイコンの後ろに淡いメインの色の丸い帯を出す（デザイン仕様書 6章） */
+.navIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 30px;
+  border-radius: 999px;
+  transition:
+    background-color 200ms ease,
+    transform 150ms var(--ease);
+}
+
+.navActive {
+  color: var(--color-primary-strong);
+  font-weight: 800;
+}
+
+.navActive .navIcon {
+  background: var(--color-primary-tint);
+  animation: pillIn 200ms var(--ease);
+}
+
+.navItem:active .navIcon {
+  transform: scale(0.9);
+}
+
+@keyframes pillIn {
+  from {
+    transform: scaleX(0.6);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ---------- メニュー（ワイド） ---------- */
+@media (min-width: 768px) and (min-height: 600px) {
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+  }
+
+  .nav {
+    position: sticky;
+    inset: auto;
+    top: 0;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 24px 12px;
+    border-radius: 0;
+    box-shadow: none;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .navItem,
+  .navActive {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 8px;
+    font-size: 0.9375rem;
+    border-radius: 999px;
+  }
+
+  .navIcon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .navItem:hover {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+
+  .navActive {
+    background: var(--color-primary-tint);
+  }
+
+  .main {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px;
+  }
+}
