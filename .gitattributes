@@ -1,0 +1,13 @@
+# テキストファイルの改行コードをLFに統一する（Windows・Mac間での差分を防ぐ）
+* text=auto eol=lf
+
+# Windows専用スクリプトはCRLFのまま
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# バイナリファイル
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
