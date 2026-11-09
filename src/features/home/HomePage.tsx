@@ -2,7 +2,7 @@
  * ホーム（基本設計書 3.3 画面1、デザイン仕様書 7.1）。
  */
 import { IconCamera, IconClipboardCheck, IconPlus } from '@tabler/icons-react';
-import { useEffect, useRef, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { db } from '../../db/db';
 import { setMeta } from '../../db/repositories';
@@ -12,6 +12,8 @@ import { AdviceCard } from '../../ui/AdviceCard';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { MealRow } from '../../ui/MealRow';
+import { canUseInAppCamera } from '../../platform/camera';
+import { CameraOverlay } from '../meal/CameraOverlay';
 import { DaySummaryCard } from './DaySummaryCard';
 import { ActivityCard } from './ActivityCard';
 import { HomeNotices } from './HomeNotices';
@@ -24,6 +26,7 @@ export function HomePage() {
   const today = useToday();
   const day = useDay(today);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [isCameraOpen, setCameraOpen] = useState(false);
 
   // 記録日が変わってから初めて開いたら、前日のふりかえりを出す（基本設計書 5.10）
   useEffect(() => {
@@ -74,7 +77,7 @@ export function HomePage() {
         <DaySummaryCard day={day} />
         {/* 撮影ボタン：押すとすぐにカメラが起動する（基本設計書 5.12）。PCでは画像ファイルを選ぶ */}
         <div className={styles.cameraRow}>
-          <Button variant="camera" onClick={() => fileRef.current?.click()}>
+          <Button variant="camera" onClick={() => (canUseInAppCamera() ? setCameraOpen(true) : fileRef.current?.click())}>
             <IconCamera size={26} stroke={2.2} aria-hidden="true" />
             撮って記録
           </Button>
@@ -82,6 +85,16 @@ export function HomePage() {
             <IconPlus size={28} stroke={2.4} />
           </Link>
           <input ref={fileRef} type="file" accept="image/*" capture="environment" className={styles.hiddenInput} onChange={onPick} />
+          {/* シャッター音が鳴らないアプリ内のカメラ。使えない端末は標準カメラを開く（基本設計書 5.12） */}
+          {isCameraOpen && (
+            <CameraOverlay
+              onClose={() => setCameraOpen(false)}
+              onCapture={(file) => {
+                setCameraOpen(false);
+                void navigate('/meal/new', { state: { file } });
+              }}
+            />
+          )}
         </div>
         <AdviceCard
           text={latestAdvice?.text ?? null}

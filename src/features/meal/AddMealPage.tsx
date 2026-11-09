@@ -17,9 +17,11 @@ import { Card, Sub } from '../../ui/Card';
 import { Chip, ChipGroup } from '../../ui/Chip';
 import { Field, Input, TextArea } from '../../ui/Field';
 import { PageHeader } from '../../ui/PageHeader';
+import { canUseInAppCamera } from '../../platform/camera';
 import { recordWithAi } from '../aiActions';
 import { useApiKeyInfo, useNow, useSettings } from '../hooks';
 import styles from '../page.module.css';
+import { CameraOverlay } from './CameraOverlay';
 import { FavoritePicker } from './FavoritePicker';
 import { ItemForm, type ItemValues } from './ItemForm';
 
@@ -50,6 +52,7 @@ export function AddMealPage() {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [elapsed, setElapsed] = useState(0);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const [isCameraOpen, setCameraOpen] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const startedFromHome = useRef(false);
@@ -106,6 +109,12 @@ export function AddMealPage() {
     if (file) void analyze(file, null);
   };
 
+  // シャッター音が鳴らないアプリ内のカメラを使う。使えない端末（古いブラウザなど）は標準カメラ（基本設計書 5.12）
+  const openCamera = () => {
+    if (canUseInAppCamera()) setCameraOpen(true);
+    else cameraRef.current?.click();
+  };
+
   const addItem = (v: ItemValues, source: MealItem['source'], favoriteId: string | null) => {
     setItems((list) => [...list, { id: newId(), ...v, source, favoriteId, model: null }]);
   };
@@ -150,7 +159,7 @@ export function AddMealPage() {
           <p>{phase.text}</p>
           {phase.isNotFood ? (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Button variant="secondary" onClick={() => cameraRef.current?.click()}>
+              <Button variant="secondary" onClick={openCamera}>
                 撮り直す
               </Button>
               <Button variant="secondary" onClick={() => { setMethod('text'); setPhase({ kind: 'idle' }); }}>
@@ -201,7 +210,7 @@ export function AddMealPage() {
             icon={<m.Icon size={18} stroke={2} aria-hidden="true" />}
             onClick={() => {
               setMethod(m.id);
-              if (m.id === 'camera') cameraRef.current?.click();
+              if (m.id === 'camera') openCamera();
               if (m.id === 'photo') photoRef.current?.click();
             }}
           >
@@ -223,7 +232,7 @@ export function AddMealPage() {
 
       {(method === 'camera' || method === 'photo') && !needsKey && (
         <Card>
-          <Button variant="primary" block onClick={() => (method === 'camera' ? cameraRef : photoRef).current?.click()}>
+          <Button variant="primary" block onClick={() => (method === 'camera' ? openCamera() : photoRef.current?.click())}>
             {method === 'camera' ? <IconCamera size={24} stroke={2.2} /> : <IconPhoto size={24} stroke={2.2} />}
             {method === 'camera' ? '撮影する' : '写真を選ぶ'}
           </Button>
@@ -282,6 +291,15 @@ export function AddMealPage() {
           保存
         </Button>
       </div>
+      {isCameraOpen && (
+        <CameraOverlay
+          onClose={() => setCameraOpen(false)}
+          onCapture={(photo) => {
+            setCameraOpen(false);
+            void analyze(photo, null);
+          }}
+        />
+      )}
     </div>
   );
 }

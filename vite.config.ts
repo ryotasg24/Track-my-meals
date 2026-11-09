@@ -19,6 +19,8 @@ const CSP = [
   "default-src 'self'",
   "connect-src 'self' https://generativelanguage.googleapis.com",
   "img-src 'self' blob: data:",
+  // アプリ内のカメラの映像（基本設計書 5.12）
+  "media-src 'self' blob: mediastream:",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self'",
   "manifest-src 'self'",
