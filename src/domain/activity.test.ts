@@ -20,6 +20,21 @@ describe('ショートカットとの受け渡し（基本設計書 6.5）', () 
     expect(parseActivityText(' tmm-active|2026/11/07 4:00|1,020 kcal \n', '2026-11-07', 4)).toEqual({ ok: true, activeKcal: 1020 });
   });
 
+  it('全角の「｜」、改行、日付の表示の違い、先頭の余計な文字は許す', () => {
+    expect(parseActivityText('tmm-active｜2026/11/07 4:00｜520', '2026-11-07', 4)).toEqual({ ok: true, activeKcal: 520 });
+    expect(parseActivityText('tmm-active|\n2026/11/07 4:00\n|520', '2026-11-07', 4)).toEqual({ ok: true, activeKcal: 520 });
+    expect(parseActivityText('tmm-active|2026年11月7日 4:00|520', '2026-11-07', 4)).toEqual({ ok: true, activeKcal: 520 });
+    expect(parseActivityText('tmm-active|2026/11/07 4:00:00|520', '2026-11-07', 4)).toEqual({ ok: true, activeKcal: 520 });
+    expect(parseActivityText('コピー tmm-active|2026/11/07 4:00|520', '2026-11-07', 4)).toEqual({ ok: true, activeKcal: 520 });
+  });
+
+  it('エラーには受け取った値を添える', () => {
+    const r = parseActivityText('2026/11/07 4:00|520', '2026-11-07', 4);
+    expect(!r.ok && r.error).toContain('「2026/11/07 4:00|520」');
+    const empty = parseActivityText('', '2026-11-07', 4);
+    expect(!empty.ok && empty.error).toContain('クリップボードが空');
+  });
+
   it('別の日・別の形・範囲外はエラー', () => {
     expect(parseActivityText('tmm-active|2026/11/06 4:00|520', '2026-11-07', 4).ok).toBe(false);
     expect(parseActivityText('520', '2026-11-07', 4).ok).toBe(false);
