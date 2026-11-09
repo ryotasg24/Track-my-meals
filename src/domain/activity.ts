@@ -70,6 +70,13 @@ export function parseActivityText(text: string, localDate: string, boundaryHour:
   if (dateTimeNumbers(parts[1] ?? '') !== dateTimeNumbers(expected)) {
     return { ok: false, error: `別の日の値です${received(text)}。2つめは「${expected}」になるはずです。もう一度［運動を取り込む］から行ってください。` };
   }
+  // 合計が空になるのは、ヘルスケアのサンプルが0件のとき（読み取りが許可されていない場合も、iOSはエラーにせず0件を返す）
+  if (!(parts[2] ?? '').trim()) {
+    return {
+      ok: false,
+      error: `アクティブエネルギーの値が空でした${received(text)}。ヘルスケアでショートカットの読み取りが許可されているか、手順8の条件（種類・開始日の範囲）を確かめてください。`,
+    };
+  }
   // ショートカットが「520 kcal」「1,020」のような形にしても読めるようにする
   const value = Number((parts[2] ?? '').replace(/[^0-9.]/g, ''));
   if (!(parts[2] ?? '').match(/[0-9]/) || !Number.isFinite(value) || value < 0 || value > 5000) {

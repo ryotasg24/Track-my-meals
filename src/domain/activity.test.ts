@@ -31,6 +31,8 @@ describe('ショートカットとの受け渡し（基本設計書 6.5）', () 
   it('エラーには受け取った値を添える', () => {
     const r = parseActivityText('2026/11/07 4:00|520', '2026-11-07', 4);
     expect(!r.ok && r.error).toContain('「2026/11/07 4:00|520」');
+    const noValue = parseActivityText('tmm-active|2026/11/07 4:00|', '2026-11-07', 4);
+    expect(!noValue.ok && noValue.error).toContain('値が空でした');
     const empty = parseActivityText('', '2026-11-07', 4);
     expect(!empty.ok && empty.error).toContain('クリップボードが空');
   });
