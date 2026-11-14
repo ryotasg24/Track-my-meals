@@ -65,8 +65,13 @@ export function ResultPage() {
         )}
       </Card>
       <Card title="この食事の合計">
-        <NutrientTiles intake={mealTotal(meal)} target={null} />
-        <Sub>カロリー {Math.round(mealTotal(meal).kcal).toLocaleString('ja-JP')}kcal</Sub>
+        {/* 棒は、1日の目標に対するこの食事の割合 */}
+        <NutrientTiles intake={mealTotal(meal)} target={target} mode="meal" />
+        <Sub>
+          カロリー {Math.round(mealTotal(meal).kcal).toLocaleString('ja-JP')}kcal
+          {target && target.kcal > 0 && `（1日の目標の${Math.round((mealTotal(meal).kcal / target.kcal) * 100)}%）`}
+          {target && '。数値の右と棒は、1日の目標に対するこの食事の分です'}
+        </Sub>
       </Card>
       <Card title="今日の状況">
         <CalorieRing intake={day.intake.kcal} target={target?.kcal ?? null} size={84} />

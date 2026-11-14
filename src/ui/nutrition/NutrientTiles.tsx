@@ -13,20 +13,29 @@ const KEYS: NutrientKey[] = ['protein', 'fat', 'carbs', 'fiber', 'salt'];
 interface Props {
   intake: Nutrients;
   target: Nutrients | null;
+  /**
+   * day：1日の摂取量と目標（初期値）。meal：1つの食事の量を、1日の目標に対する割合の棒で示す。
+   * meal では、1食だけで「超過」「達成」とは言えないため、札を出さない
+   */
+  mode?: 'day' | 'meal';
 }
 
-export function NutrientTiles({ intake, target }: Props) {
+export function NutrientTiles({ intake, target, mode = 'day' }: Props) {
   return (
     <div className={styles.tiles}>
       {KEYS.map((key) => {
         const { fg, bg } = nutrientColors(key);
         const t = target?.[key] ?? null;
-        const status = t !== null ? nutrientStatus(key, intake[key], t) : 'normal';
+        const status = t !== null && mode === 'day' ? nutrientStatus(key, intake[key], t) : 'normal';
         const ratio = t ? Math.min(1, intake[key] / t) : 0;
         const goal = key === 'salt' ? '未満' : key === 'fiber' || key === 'protein' ? '以上' : '';
         const spoken =
           `${NUTRIENT_LABELS[key]}：${formatNutrient(key, intake[key])}グラム` +
-          (t !== null ? `、目標${formatNutrient(key, t)}グラム${goal}` : '') +
+          (t !== null
+            ? mode === 'meal'
+              ? `、1日の目標${formatNutrient(key, t)}グラムの${Math.round((intake[key] / t) * 100)}パーセント`
+              : `、目標${formatNutrient(key, t)}グラム${goal}`
+            : '') +
           (status === 'over' ? '、超過' : status === 'achieved' ? '、達成' : '');
         return (
           <div
