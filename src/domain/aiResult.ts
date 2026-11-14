@@ -45,7 +45,10 @@ function isNum(v: unknown): v is number {
  * analyzeMeal の回答（JSONを読んだ結果）をチェックする。
  * 名前が長すぎる場合はエラーにせず40文字で切る。
  */
-export function checkAnalyzeResult(json: unknown): CheckResult<AnalyzeResult> {
+/**
+ * @param allowEmpty 品目が0件でもよいか（記録済みの食事に写真を追加したとき。新しい料理がない場合があるため。F-REC-12）
+ */
+export function checkAnalyzeResult(json: unknown, allowEmpty = false): CheckResult<AnalyzeResult> {
   if (!isObject(json) || typeof json.isFood !== 'boolean') return { ok: false, error: '回答の形が違います' };
   // おすすめの形がおかしくても、推定の結果は使う（おすすめは数値の一覧で代わりに表示する）
   const advice = checkAdviceContent(json.advice);
@@ -56,7 +59,7 @@ export function checkAnalyzeResult(json: unknown): CheckResult<AnalyzeResult> {
   }
 
   if (!Array.isArray(json.items)) return { ok: false, error: '品目がありません' };
-  if (json.items.length === 0 || json.items.length > MAX_ITEMS) return { ok: false, error: '品目の数がおかしいです' };
+  if ((json.items.length === 0 && !allowEmpty) || json.items.length > MAX_ITEMS) return { ok: false, error: '品目の数がおかしいです' };
 
   const items: AiItem[] = [];
   for (const raw of json.items) {

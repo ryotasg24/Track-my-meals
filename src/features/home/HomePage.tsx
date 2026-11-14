@@ -14,6 +14,10 @@ import { Card } from '../../ui/Card';
 import { MealRow } from '../../ui/MealRow';
 import { canUseInAppCamera } from '../../platform/camera';
 import { CameraOverlay } from '../meal/CameraOverlay';
+import { CameraMealOptions } from '../meal/CameraMealOptions';
+import { findMergeTarget } from '../../domain/mealPhotos';
+import { mealTypeAt } from '../../domain/mealType';
+import type { MealType } from '../../domain/types';
 import { DaySummaryCard } from './DaySummaryCard';
 import { ActivityCard } from './ActivityCard';
 import { HomeNotices } from './HomeNotices';
@@ -27,6 +31,9 @@ export function HomePage() {
   const day = useDay(today);
   const fileRef = useRef<HTMLInputElement>(null);
   const [isCameraOpen, setCameraOpen] = useState(false);
+  // カメラの画面で選ぶ区分と、既存の食事に追加するか（F-REC-11、12）
+  const [cameraType, setCameraType] = useState<MealType>('lunch');
+  const [isMerging, setMerging] = useState(true);
 
   // 記録日が変わってから初めて開いたら、前日のふりかえりを出す（基本設計書 5.10）
   useEffect(() => {
@@ -60,6 +67,20 @@ export function HomePage() {
     .filter((m) => m.advice)
     .sort((a, b) => (b.advice?.createdAt ?? 0) - (a.advice?.createdAt ?? 0))[0]?.advice;
 
+  // 同じ記録日・同じ区分の食事（写真を追加する先。F-REC-12）
+  const mergeTarget = findMergeTarget(day.meals, today, cameraType);
+
+  /** 撮影ボタン：区分は時刻から選んでおき、カメラの画面で変えられる（F-REC-11） */
+  const openCamera = () => {
+    if (!canUseInAppCamera()) {
+      fileRef.current?.click();
+      return;
+    }
+    setCameraType(mealTypeAt(Date.now(), settings.mealTypeStarts));
+    setMerging(true);
+    setCameraOpen(true);
+  };
+
   const onPick = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -77,7 +98,7 @@ export function HomePage() {
         <DaySummaryCard day={day} />
         {/* 撮影ボタン：押すとすぐにカメラが起動する（基本設計書 5.12）。PCでは画像ファイルを選ぶ */}
         <div className={styles.cameraRow}>
-          <Button variant="camera" onClick={() => (canUseInAppCamera() ? setCameraOpen(true) : fileRef.current?.click())}>
+          <Button variant="camera" onClick={openCamera}>
             <IconCamera size={26} stroke={2.2} aria-hidden="true" />
             撮って記録
           </Button>
@@ -89,9 +110,22 @@ export function HomePage() {
           {isCameraOpen && (
             <CameraOverlay
               onClose={() => setCameraOpen(false)}
+              controls={
+                <CameraMealOptions
+                  mealType={cameraType}
+                  onMealTypeChange={(t) => {
+                    setCameraType(t);
+                    setMerging(true);
+                  }}
+                  mergeTarget={mergeTarget}
+                  isMerging={isMerging}
+                  onMergingChange={setMerging}
+                />
+              }
               onCapture={(file) => {
                 setCameraOpen(false);
-                void navigate('/meal/new', { state: { file } });
+                const mergeInto = isMerging && mergeTarget ? mergeTarget.id : null;
+                void navigate('/meal/new', { state: { file, mealType: cameraType, mergeInto } });
               }}
             />
           )}

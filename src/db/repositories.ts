@@ -4,6 +4,7 @@
  */
 import type { AdviceContent } from '../domain/advice';
 import { toRecordDate } from '../domain/date';
+import { MAX_PHOTOS } from '../domain/mealPhotos';
 import { DEFAULT_MEAL_TYPE_STARTS } from '../domain/mealType';
 import { DEFAULT_TARGET_PLAN } from '../domain/target';
 import type {
@@ -11,8 +12,10 @@ import type {
   Favorite,
   Meal,
   MealItem,
+  MealPhoto,
   MealType,
   Nutrients,
+  PhotoImage,
   Settings,
   TargetPlan,
 } from '../domain/types';
@@ -104,6 +107,15 @@ export async function getModelCooldown(database: MealsDb): Promise<ModelCooldown
 
 // ---------- 食事 ----------
 
+/** 保存する写真（バイト列にしたもの） */
+export interface NewPhoto {
+  /** 縮小した写真（長い辺320px） */
+  thumbnail: ArrayBuffer;
+  /** AIに送る大きさの写真（長い辺1024px）。読み取り待ちのあいだだけ保存する */
+  image: ArrayBuffer;
+  mimeType: string;
+}
+
 export interface NewMealInput {
   eatenAt: number;
   mealType: MealType;
@@ -111,13 +123,17 @@ export interface NewMealInput {
   items: MealItem[];
   status: Meal['status'];
   inputText?: string | null;
-  thumbnail?: Blob | null;
-  /** 読み取り待ちのときに保存する、AIに送る大きさの写真 */
-  pendingImage?: Blob | null;
+  /** 写真（読み取り待ちとして保存する） */
+  photo?: NewPhoto | null;
 }
 
-/** 食事を新しく保存する。読み取り待ちの写真があれば同じトランザクションで保存する */
+function pendingPhoto(photo: NewPhoto, now: number): MealPhoto {
+  return { id: newId(), thumbnail: photo.thumbnail, mimeType: photo.mimeType, isPending: true, createdAt: now };
+}
+
+/** 食事を新しく保存する。写真があれば、読み取り待ちの写真も同じトランザクションで保存する */
 export async function addMeal(database: MealsDb, input: NewMealInput, now: number): Promise<Meal> {
+  const photo = input.photo ? pendingPhoto(input.photo, now) : null;
   const meal: Meal = {
     ...sync(now),
     eatenAt: input.eatenAt,
@@ -125,16 +141,40 @@ export async function addMeal(database: MealsDb, input: NewMealInput, now: numbe
     mealType: input.mealType,
     status: input.status,
     inputText: input.inputText ?? null,
-    thumbnail: input.thumbnail ?? null,
+    photos: photo ? [photo] : [],
     items: input.items,
     advice: null,
   };
-  await database.transaction('rw', [database.meals, database.mealImages, database.favorites], async () => {
+  await database.transaction('rw', [database.meals, database.photoImages, database.favorites], async () => {
     await database.meals.add(meal);
-    if (input.pendingImage) await database.mealImages.put({ mealId: meal.id, image: input.pendingImage });
+    if (photo && input.photo) {
+      await database.photoImages.put({ photoId: photo.id, mealId: meal.id, image: input.photo.image, mimeType: input.photo.mimeType });
+    }
     await countFavoriteUse(database, input.items, now);
   });
   return meal;
+}
+
+/**
+ * 記録済みの食事に写真を追加する（F-REC-12）。写真は読み取り待ちにする。
+ * 先に追加した品目（よく食べるもの・手入力）があれば、同じ食事の品目に加える。
+ * @returns 追加した写真のID。食事がない・写真が上限に達している場合はnull
+ */
+export async function addPhotoToMeal(
+  database: MealsDb,
+  mealId: string,
+  input: { photo: NewPhoto; items: MealItem[] },
+  now: number,
+): Promise<string | null> {
+  return database.transaction('rw', [database.meals, database.photoImages, database.favorites], async () => {
+    const meal = await database.meals.get(mealId);
+    if (!meal || meal.deleted === 1 || meal.photos.length >= MAX_PHOTOS) return null;
+    const photo = pendingPhoto(input.photo, now);
+    await database.meals.update(mealId, { photos: [...meal.photos, photo], items: [...meal.items, ...input.items], updatedAt: now });
+    await database.photoImages.put({ photoId: photo.id, mealId, image: input.photo.image, mimeType: input.photo.mimeType });
+    await countFavoriteUse(database, input.items, now);
+    return photo.id;
+  });
 }
 
 /** よく食べるものの使った回数を増やす（F-FAV-03） */
@@ -152,39 +192,52 @@ async function countFavoriteUse(database: MealsDb, items: readonly MealItem[], n
 }
 
 /**
- * 読み取りが終わった食事を記録済みにする。品目を加え、読み取り待ちの写真を消す（基本設計書 6.4）。
- * 既存の品目（よく食べるものなど）の後ろに、AIの品目を足す。
+ * 読み取りが終わったら、品目を加えて記録済みにする（基本設計書 6.4）。
+ * 読み取った写真は読み取り待ちを外し、AIに送る大きさの写真を消す。
+ * @param photoId 読み取った写真（文章だけの場合はnull）
  */
 export async function completeMealAnalysis(
   database: MealsDb,
   mealId: string,
+  photoId: string | null,
   aiItems: MealItem[],
   advice: Advice | null,
   now: number,
 ): Promise<void> {
-  await database.transaction('rw', [database.meals, database.mealImages], async () => {
+  await database.transaction('rw', [database.meals, database.photoImages], async () => {
     const meal = await database.meals.get(mealId);
     if (!meal) return;
     await database.meals.update(mealId, {
       items: [...meal.items, ...aiItems],
+      photos: meal.photos.map((p) => (p.id === photoId ? { ...p, isPending: false } : p)),
       status: 'done',
       advice: advice ?? meal.advice,
       updatedAt: now,
     });
-    await database.mealImages.delete(mealId);
+    if (photoId) await database.photoImages.delete(photoId);
+  });
+}
+
+/** 食事から写真を1枚外す（料理が写っていなかった追加の写真、または利用者が削除した写真）。品目はそのまま */
+export async function removePhoto(database: MealsDb, mealId: string, photoId: string, now: number): Promise<void> {
+  await database.transaction('rw', [database.meals, database.photoImages], async () => {
+    const meal = await database.meals.get(mealId);
+    if (meal) await database.meals.update(mealId, { photos: meal.photos.filter((p) => p.id !== photoId), updatedAt: now });
+    await database.photoImages.delete(photoId);
   });
 }
 
 /** 料理が読み取れなかった食事を消す（F-AI-03：保存しない） */
 export async function discardMeal(database: MealsDb, mealId: string): Promise<void> {
-  await database.transaction('rw', [database.meals, database.mealImages], async () => {
+  await database.transaction('rw', [database.meals, database.photoImages], async () => {
     await database.meals.delete(mealId);
-    await database.mealImages.delete(mealId);
+    await database.photoImages.where('mealId').equals(mealId).delete();
   });
 }
 
-export async function getPendingImage(database: MealsDb, mealId: string): Promise<Blob | null> {
-  return (await database.mealImages.get(mealId))?.image ?? null;
+/** 読み取り待ちの写真（AIに送る大きさ）を読む */
+export async function getPhotoImage(database: MealsDb, photoId: string): Promise<PhotoImage | null> {
+  return (await database.photoImages.get(photoId)) ?? null;
 }
 
 /** 食事を編集する。日時を変えたら記録日も計算し直す */
@@ -206,9 +259,9 @@ export async function setMealAdvice(database: MealsDb, mealId: string, advice: A
 
 /** 食事を削除する（削除済みの印を付ける。読み取り待ちの写真は消す） */
 export async function deleteMeal(database: MealsDb, mealId: string, now: number): Promise<void> {
-  await database.transaction('rw', [database.meals, database.mealImages], async () => {
+  await database.transaction('rw', [database.meals, database.photoImages], async () => {
     await database.meals.update(mealId, { deleted: 1, updatedAt: now });
-    await database.mealImages.delete(mealId);
+    await database.photoImages.where('mealId').equals(mealId).delete();
   });
 }
 

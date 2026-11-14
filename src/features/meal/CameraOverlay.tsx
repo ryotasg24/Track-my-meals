@@ -4,7 +4,7 @@
  * カメラを使えないときは、iPhoneの標準カメラ（シャッター音あり）に切り替えられる。
  */
 import { IconCamera, IconX } from '@tabler/icons-react';
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cameraErrorMessage, closeCamera, grabFrame, openRearCamera } from '../../platform/camera';
 import styles from './CameraOverlay.module.css';
@@ -13,9 +13,11 @@ interface Props {
   /** 撮った写真（または標準カメラ・ファイルで選んだ写真） */
   onCapture: (photo: Blob) => void;
   onClose: () => void;
+  /** シャッターの上に出す選択（ホームの撮影では、区分と、既存の食事に追加するか。F-REC-11、12） */
+  controls?: ReactNode;
 }
 
-export function CameraOverlay({ onCapture, onClose }: Props) {
+export function CameraOverlay({ onCapture, onClose, controls }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fallbackRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<{ kind: 'starting' | 'ready' } | { kind: 'error'; message: string }>({ kind: 'starting' });
@@ -91,7 +93,9 @@ export function CameraOverlay({ onCapture, onClose }: Props) {
         </div>
       )}
 
-      <div className={styles.bottom}>
+      <div className={styles.bottomArea}>
+        {controls}
+        <div className={styles.bottom}>
         <button
           type="button"
           className={styles.fallback}
@@ -110,6 +114,7 @@ export function CameraOverlay({ onCapture, onClose }: Props) {
           <IconCamera size={30} stroke={2} aria-hidden="true" />
         </button>
         <span className={styles.spacer} />
+        </div>
       </div>
       <input ref={fallbackRef} type="file" accept="image/*" capture="environment" hidden onChange={onPick} />
     </div>,

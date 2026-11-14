@@ -13,8 +13,11 @@ import {
   discardMeal,
   getApiKey,
   getModelCooldown,
-  getPendingImage,
+  getPhotoImage,
   newId,
+  removePhoto,
+  addPhotoToMeal,
+  type NewPhoto,
   setMealAdvice,
   setMeta,
   upsertReview,
@@ -25,7 +28,9 @@ import { formatTime } from '../domain/format';
 import { remainingMealTypes } from '../domain/mealType';
 import { addNutrients, mealTotal, sumMeals } from '../domain/nutrition';
 import { nextQuotaReset } from '../domain/quota';
-import type { MealItem, MealType, Nutrients } from '../domain/types';
+import { toRecordDate } from '../domain/date';
+import { findMergeTarget, hasPendingInput, MAX_PHOTOS, photoBlob } from '../domain/mealPhotos';
+import type { Meal, MealItem, MealType, Nutrients } from '../domain/types';
 import { preparePhoto } from '../platform/image';
 
 /** AIを使う準備。APIキーがなければnull */
@@ -68,9 +73,16 @@ export type RecordOutcome =
   | { kind: 'pending'; mealId: string; message: string }
   | { kind: 'notFood'; reason: string; keptMealId: string | null };
 
+/** 写真を縮小し、保存する形（バイト列）にする */
+async function photoForSave(file: Blob): Promise<NewPhoto> {
+  const photo = await preparePhoto(file);
+  return { thumbnail: await photo.thumbnail.arrayBuffer(), image: await photo.aiImage.arrayBuffer(), mimeType: 'image/jpeg' };
+}
+
 /**
- * 写真または文章で食事を記録する（F-REC-01〜03、F-AI-01〜08）。
+ * 写真または文章で食事を記録する（F-REC-01〜03、11、12、F-AI-01〜08）。
  * @param preItems 先に追加した、よく食べるもの・手入力の品目（同じ食事にまとめる。F-REC-09）
+ * @param mergeInto 写真を追加する先の食事（同じ記録日・同じ区分の食事。F-REC-12）。新しい食事にするならnull
  */
 export async function recordWithAi(input: {
   file: Blob | null;
@@ -78,12 +90,18 @@ export async function recordWithAi(input: {
   eatenAt: number;
   mealType: MealType;
   preItems: MealItem[];
+  mergeInto?: string | null;
   signal?: AbortSignal;
 }): Promise<RecordOutcome> {
   const settings = await db.settings.get('app');
   if (!settings) throw new Error('設定がありません');
 
-  const photo = input.file ? await preparePhoto(input.file) : null;
+  const photo = input.file ? await photoForSave(input.file) : null;
+  if (photo && input.mergeInto) {
+    const photoId = await addPhotoToMeal(db, input.mergeInto, { photo, items: input.preItems }, Date.now());
+    if (photoId) return analyzePending(input.mergeInto, input.signal);
+    // 追加先が消えた・写真が上限に達した場合は、新しい食事として記録する
+  }
   const meal = await addMeal(
     db,
     {
@@ -93,8 +111,7 @@ export async function recordWithAi(input: {
       items: input.preItems,
       status: 'pending',
       inputText: input.text,
-      thumbnail: photo?.thumbnail ?? null,
-      pendingImage: photo?.aiImage ?? null,
+      photo,
     },
     Date.now(),
   );
@@ -102,55 +119,104 @@ export async function recordWithAi(input: {
 }
 
 /**
- * 読み取り待ちの食事を読み取る（新しく記録したとき、または［今すぐ読み取る］）。
+ * 読み取り待ちのものを読み取る（新しく記録したとき、写真を追加したとき、または［今すぐ読み取る］）。
+ * まだ読み取っていない食事は写真（なければ文章）を、記録済みの食事は追加した写真を1枚ずつ読み取る。
  */
 export async function analyzePending(mealId: string, signal?: AbortSignal): Promise<RecordOutcome> {
-  const meal = await db.meals.get(mealId);
-  if (!meal) throw new Error('食事が見つかりません');
-  const config = await loadAiConfig(signal);
-  if (!config) return { kind: 'pending', mealId, message: 'APIキーが設定されていないため、読み取り待ちとして保存しました。' };
-
-  const image = await getPendingImage(db, mealId);
-  const state = await dayState(meal.localDate, mealId);
-  const context: DayContext = {
-    target: state.target,
-    intake: addNutrients(state.intake, mealTotal(meal)),
-    time: formatTime(meal.eatenAt),
-    mealType: meal.mealType,
-    remaining: remainingMealTypes(meal.mealType),
-    preferences: state.preferences,
-  };
-  const { result, cooldown } = await analyzeMeal(config, { image, text: meal.inputText }, context);
-  await setMeta(db, 'modelCooldown', cooldown);
-
-  if (!result.ok) {
-    return { kind: 'pending', mealId, message: `${failureText(result.kind)}（読み取り待ちとして保存しました）` };
+  let last: RecordOutcome = { kind: 'done', mealId };
+  // 追加した写真が複数たまっていても、1枚ずつ読み取る（回数の上限は写真の枚数）
+  for (let round = 0; round <= MAX_PHOTOS; round++) {
+    const meal = await db.meals.get(mealId);
+    if (!meal) throw new Error('食事が見つかりません');
+    if (!hasPendingInput(meal)) return last;
+    const r = await analyzeOne(meal);
+    if (r.kind === 'pending') return r;
+    if (r.kind === 'notFood' && !r.keptMealId) return r;
+    last = r;
   }
-  const now = Date.now();
-  if (!result.value.isFood) {
-    // 料理でなければ保存しない（F-AI-03）。先に追加した品目があれば、それだけで記録済みにする
-    if (meal.items.length > 0) {
-      await completeMealAnalysis(db, mealId, [], null, now);
-      return { kind: 'notFood', reason: result.value.reason, keptMealId: mealId };
+  return last;
+
+  async function analyzeOne(meal: Meal): Promise<RecordOutcome> {
+    const config = await loadAiConfig(signal);
+    if (!config) return { kind: 'pending', mealId, message: 'APIキーが設定されていないため、読み取り待ちとして保存しました。' };
+
+    const photo = meal.photos.find((p) => p.isPending) ?? null;
+    const stored = photo ? await getPhotoImage(db, photo.id) : null;
+    const image = stored ? photoBlob(stored.image, stored.mimeType) : null;
+    // 文章は、まだ読み取っていない食事のときだけ送る（追加した写真のときは写真だけ）
+    const text = meal.status === 'pending' ? meal.inputText : null;
+    if (photo && !image) {
+      // AIに送る写真が残っていない（古いデータなど）。読み取れないため、読み取り待ちを外す
+      await completeMealAnalysis(db, mealId, photo.id, [], null, Date.now());
+      return { kind: 'done', mealId };
     }
-    await discardMeal(db, mealId);
-    return { kind: 'notFood', reason: result.value.reason, keptMealId: null };
+    const state = await dayState(meal.localDate, mealId);
+    const context: DayContext = {
+      target: state.target,
+      intake: addNutrients(state.intake, mealTotal(meal)),
+      time: formatTime(meal.eatenAt),
+      mealType: meal.mealType,
+      remaining: remainingMealTypes(meal.mealType),
+      preferences: state.preferences,
+      recordedItems: meal.items.map((i) => i.name),
+    };
+    const { result, cooldown } = await analyzeMeal(config, { image, text }, context);
+    await setMeta(db, 'modelCooldown', cooldown);
+
+    if (!result.ok) {
+      return { kind: 'pending', mealId, message: `${failureText(result.kind)}（読み取り待ちとして保存しました）` };
+    }
+    const now = Date.now();
+    if (!result.value.isFood) {
+      // 料理でなければ保存しない（F-AI-03）。記録済みの食事に追加した写真なら、その写真だけを外す
+      if (meal.status === 'done' && photo) {
+        await removePhoto(db, mealId, photo.id, now);
+        return { kind: 'notFood', reason: result.value.reason, keptMealId: mealId };
+      }
+      // 先に追加した品目があれば、それだけで記録済みにする
+      if (meal.items.length > 0) {
+        if (photo) await removePhoto(db, mealId, photo.id, now);
+        await completeMealAnalysis(db, mealId, null, [], null, now);
+        return { kind: 'notFood', reason: result.value.reason, keptMealId: mealId };
+      }
+      await discardMeal(db, mealId);
+      return { kind: 'notFood', reason: result.value.reason, keptMealId: null };
+    }
+    const source = image ? 'photo' : 'text';
+    const items: MealItem[] = result.value.items.map((i) => ({
+      id: newId(),
+      name: i.name,
+      amount: i.amount,
+      unit: i.unit,
+      nutrients: i.nutrients,
+      source,
+      favoriteId: null,
+      model: result.model,
+    }));
+    const content = result.value.advice;
+    const advice = content ? { text: adviceToText(content), content, model: result.model, createdAt: now } : null;
+    await completeMealAnalysis(db, mealId, photo?.id ?? null, items, advice, now);
+    return { kind: 'done', mealId };
   }
-  const source = image ? 'photo' : 'text';
-  const items: MealItem[] = result.value.items.map((i) => ({
-    id: newId(),
-    name: i.name,
-    amount: i.amount,
-    unit: i.unit,
-    nutrients: i.nutrients,
-    source,
-    favoriteId: null,
-    model: result.model,
-  }));
-  const content = result.value.advice;
-  const advice = content ? { text: adviceToText(content), content, model: result.model, createdAt: now } : null;
-  await completeMealAnalysis(db, mealId, items, advice, now);
-  return { kind: 'done', mealId };
+}
+
+/**
+ * 記録済みの食事に、写真を追加して読み取る（食事の詳細の［写真を追加］。F-REC-12）。
+ */
+export async function addPhotoAndAnalyze(mealId: string, file: Blob, signal?: AbortSignal): Promise<RecordOutcome> {
+  const photo = await photoForSave(file);
+  const photoId = await addPhotoToMeal(db, mealId, { photo, items: [] }, Date.now());
+  if (!photoId) return { kind: 'pending', mealId, message: `写真は1つの食事に${MAX_PHOTOS}枚までです。` };
+  return analyzePending(mealId, signal);
+}
+
+/** 写真を同じ区分の食事にまとめるときの、追加先の候補（F-REC-12） */
+export async function mergeTargetFor(eatenAt: number, mealType: MealType): Promise<Meal | null> {
+  const settings = await db.settings.get('app');
+  if (!settings) return null;
+  const localDate = toRecordDate(eatenAt, settings.dayBoundaryHour);
+  const meals = await db.meals.where('localDate').equals(localDate).toArray();
+  return findMergeTarget(meals, localDate, mealType);
 }
 
 /**

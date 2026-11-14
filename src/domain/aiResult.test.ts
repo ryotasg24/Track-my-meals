@@ -32,6 +32,8 @@ describe('AIの回答のチェック（基本設計書 5.8）', () => {
 
   it('料理なのに品目が0はエラー', () => {
     expect(checkAnalyzeResult({ isFood: true, items: [], advice: '' }).ok).toBe(false);
+    // 記録済みの食事に写真を追加したときは、新しい料理がなくてもよい（F-REC-12）
+    expect(checkAnalyzeResult({ isFood: true, items: [], advice: '' }, true).ok).toBe(true);
   });
 
   it('品目が21個以上はエラー', () => {

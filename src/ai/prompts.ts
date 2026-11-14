@@ -114,6 +114,8 @@ export interface DayContext {
   mealType: MealType;
   remaining: MealType[];
   preferences: string;
+  /** この食事にすでに記録してある品目の名前（写真を追加したときに、二重に数えないため。F-REC-12） */
+  recordedItems?: string[];
 }
 
 function contextLines(c: DayContext, intakeLabel: string): string[] {
@@ -149,6 +151,9 @@ export function buildAnalyzePrompt(c: DayContext, inputText: string | null): str
     'advice には、この食事を含めた今日の摂取量を踏まえて、次の食事のおすすめを書いてください。料理でない場合も、advice の形は守ってください。',
     ...nextMealAdviceLines(),
     inputText ? `食事の内容（利用者が入力した文章）：${inputText}` : '',
+    c.recordedItems?.length
+      ? `この食事には、すでに次の品目を記録してあります：${c.recordedItems.join('、')}。写真に同じ料理が写っていても items には入れず、まだ記録していない料理だけを items に入れてください。新しい料理がなければ items は空にしてください（isFood は true のまま）。`
+      : '',
   ]
     .filter(Boolean)
     .join('\n');

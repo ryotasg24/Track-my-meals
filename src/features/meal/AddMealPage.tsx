@@ -8,17 +8,17 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { db } from '../../db/db';
 import { addMeal, newId } from '../../db/repositories';
-import { formatAmount, fromDateTimeInputValue, toDateTimeInputValue } from '../../domain/format';
+import { formatAmount, formatTime, fromDateTimeInputValue, toDateTimeInputValue } from '../../domain/format';
 import { MEAL_TYPE_LABELS, MEAL_TYPE_ORDER, mealTypeAt } from '../../domain/mealType';
 import { addNutrients, formatNutrient, ZERO_NUTRIENTS } from '../../domain/nutrition';
-import type { MealItem, MealType } from '../../domain/types';
+import type { Meal, MealItem, MealType } from '../../domain/types';
 import { Button } from '../../ui/Button';
 import { Card, Sub } from '../../ui/Card';
 import { Chip, ChipGroup } from '../../ui/Chip';
 import { Field, Input, TextArea } from '../../ui/Field';
 import { PageHeader } from '../../ui/PageHeader';
 import { canUseInAppCamera } from '../../platform/camera';
-import { recordWithAi } from '../aiActions';
+import { mergeTargetFor, recordWithAi } from '../aiActions';
 import { useApiKeyInfo, useNow, useSettings } from '../hooks';
 import styles from '../page.module.css';
 import { CameraOverlay } from './CameraOverlay';
@@ -45,7 +45,11 @@ export function AddMealPage() {
   const clock = useNow(30_000);
   const [now] = useState(() => Date.now());
   const [eatenAt, setEatenAt] = useState(now);
-  const [mealType, setMealType] = useState<MealType | null>(null);
+  // ホームのカメラの画面から来た場合：撮った写真、選んだ区分、写真を追加する先の食事（F-REC-11、12）
+  const fromHome = location.state as { file?: Blob; mealType?: MealType; mergeInto?: string | null } | null;
+  const [mealType, setMealType] = useState<MealType | null>(fromHome?.mealType ?? null);
+  const [mergeTarget, setMergeTarget] = useState<Meal | null>(null);
+  const [isMerging, setMerging] = useState(true);
   const [method, setMethod] = useState<Method>('favorite');
   const [items, setItems] = useState<MealItem[]>([]);
   const [text, setText] = useState('');
@@ -59,6 +63,17 @@ export function AddMealPage() {
 
   const type: MealType = mealType ?? (settings ? mealTypeAt(eatenAt, settings.mealTypeStarts) : 'lunch');
 
+  // 写真を追加する先の候補を、日時と区分が変わるたびに探す（F-REC-12）
+  useEffect(() => {
+    let cancelled = false;
+    void mergeTargetFor(eatenAt, type).then((m) => {
+      if (!cancelled) setMergeTarget(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [eatenAt, type]);
+
   // 読み取り中は経過秒数を表示する（非機能・性能）
   useEffect(() => {
     if (phase.kind !== 'analyzing') return;
@@ -66,13 +81,13 @@ export function AddMealPage() {
     return () => window.clearInterval(timer);
   }, [phase]);
 
-  const analyze = async (file: Blob | null, inputText: string | null) => {
+  const analyze = async (file: Blob | null, inputText: string | null, mergeInto: string | null = null) => {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setElapsed(0);
     setPhase({ kind: 'analyzing', startedAt: Date.now() });
     try {
-      const r = await recordWithAi({ file, text: inputText, eatenAt, mealType: type, preItems: items, signal: ctrl.signal });
+      const r = await recordWithAi({ file, text: inputText, eatenAt, mealType: type, preItems: items, mergeInto, signal: ctrl.signal });
       if (r.kind === 'done') {
         void navigate(`/meal/${r.mealId}/result`, { replace: true });
       } else if (r.kind === 'pending') {
@@ -92,21 +107,24 @@ export function AddMealPage() {
   };
 
   // ホームの撮影ボタンから来た場合は、すぐに読み取りを始める
-  const fileFromHome = (location.state as { file?: Blob } | null)?.file ?? null;
+  const fileFromHome = fromHome?.file ?? null;
   useEffect(() => {
     if (!fileFromHome || !settings || startedFromHome.current) return;
     startedFromHome.current = true;
-    void analyze(fileFromHome, null);
+    void analyze(fileFromHome, null, fromHome?.mergeInto ?? null);
     // 最初の1回だけ動かす
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileFromHome, settings]);
 
   if (!settings || !key) return null;
 
+  // 写真で記録するとき、同じ記録日・同じ区分の食事があれば、そこに写真を追加する（F-REC-12）
+  const photoMergeInto = isMerging && mergeTarget ? mergeTarget.id : null;
+
   const onPick = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (file) void analyze(file, null);
+    if (file) void analyze(file, null, photoMergeInto);
   };
 
   // シャッター音が鳴らないアプリ内のカメラを使う。使えない端末（古いブラウザなど）は標準カメラ（基本設計書 5.12）
@@ -232,6 +250,12 @@ export function AddMealPage() {
 
       {(method === 'camera' || method === 'photo') && !needsKey && (
         <Card>
+          {mergeTarget && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 44, marginBottom: 8 }}>
+              <input type="checkbox" checked={isMerging} onChange={(e) => setMerging(e.target.checked)} style={{ width: 20, height: 20 }} />
+              {`この日の${MEAL_TYPE_LABELS[type]}（${formatTime(mergeTarget.eatenAt)}・写真${mergeTarget.photos.length}枚）に写真を追加する`}
+            </label>
+          )}
           <Button variant="primary" block onClick={() => (method === 'camera' ? openCamera() : photoRef.current?.click())}>
             {method === 'camera' ? <IconCamera size={24} stroke={2.2} /> : <IconPhoto size={24} stroke={2.2} />}
             {method === 'camera' ? '撮影する' : '写真を選ぶ'}
@@ -296,7 +320,7 @@ export function AddMealPage() {
           onClose={() => setCameraOpen(false)}
           onCapture={(photo) => {
             setCameraOpen(false);
-            void analyze(photo, null);
+            void analyze(photo, null, photoMergeInto);
           }}
         />
       )}

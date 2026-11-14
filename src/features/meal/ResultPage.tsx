@@ -11,7 +11,8 @@ import { Card, Sub } from '../../ui/Card';
 import { CalorieRing } from '../../ui/nutrition/CalorieRing';
 import { NutrientTiles } from '../../ui/nutrition/NutrientTiles';
 import { PageHeader } from '../../ui/PageHeader';
-import { Thumbnail } from '../../ui/Thumbnail';
+import { PhotoStrip } from '../../ui/PhotoStrip';
+import { MEAL_TYPE_LABELS } from '../../domain/mealType';
 import { refreshMealAdvice } from '../aiActions';
 import { useDay, useMeal } from '../hooks';
 import styles from '../page.module.css';
@@ -52,9 +53,9 @@ export function ResultPage() {
     <div className={styles.page}>
       <PageHeader title="読み取り結果" nav="close" to="/" />
       <Card>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
-          <Thumbnail blob={meal.thumbnail} alt="食事の写真" size={88} />
-          {meal.inputText && <p style={{ margin: 0 }}>「{meal.inputText}」</p>}
+        <div style={{ marginBottom: 8 }}>
+          {meal.photos.length > 0 && <PhotoStrip photos={meal.photos} label={`${MEAL_TYPE_LABELS[meal.mealType]}の写真`} />}
+          {meal.inputText && <p style={{ margin: '8px 0 0' }}>「{meal.inputText}」</p>}
         </div>
         <ItemList items={meal.items} />
         {hasAiItems && (

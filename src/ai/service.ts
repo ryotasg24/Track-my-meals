@@ -69,7 +69,7 @@ export async function analyzeMeal(
           schema: ANALYZE_SCHEMA,
           signal: config.signal,
         }),
-        checkAnalyzeResult,
+        (json) => checkAnalyzeResult(json, (context.recordedItems?.length ?? 0) > 0),
       ),
   });
 }

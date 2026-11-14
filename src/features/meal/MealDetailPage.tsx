@@ -3,10 +3,11 @@
  * 品目の追加・削除・量の変更、区分と日時の変更、削除、保存したおすすめ、読み取り待ちの読み取り。
  */
 import { IconTrash } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { db } from '../../db/db';
-import { deleteMeal, newId, updateMeal } from '../../db/repositories';
+import { deleteMeal, newId, removePhoto, updateMeal } from '../../db/repositories';
+import { hasPendingInput } from '../../domain/mealPhotos';
 import { formatDateTime, fromDateTimeInputValue, toDateTimeInputValue } from '../../domain/format';
 import { MEAL_TYPE_LABELS, MEAL_TYPE_ORDER } from '../../domain/mealType';
 import { rescaleForAmount } from '../../domain/nutrition';
@@ -17,10 +18,12 @@ import { Card, Sub } from '../../ui/Card';
 import { Chip, ChipGroup } from '../../ui/Chip';
 import { Field, Input } from '../../ui/Field';
 import { PageHeader } from '../../ui/PageHeader';
-import { Thumbnail } from '../../ui/Thumbnail';
-import { analyzePending, refreshMealAdvice } from '../aiActions';
+import { PhotoStrip } from '../../ui/PhotoStrip';
+import { canUseInAppCamera } from '../../platform/camera';
+import { addPhotoAndAnalyze, analyzePending, refreshMealAdvice, type RecordOutcome } from '../aiActions';
 import { useDay, useMeal, useNow, useSettings } from '../hooks';
 import styles from '../page.module.css';
+import { CameraOverlay } from './CameraOverlay';
 import { FavoritePicker } from './FavoritePicker';
 import { ItemForm, type ItemValues } from './ItemForm';
 import { ItemList } from './ItemList';
@@ -39,7 +42,11 @@ export function MealDetailPage() {
   const [adding, setAdding] = useState<'none' | 'favorite' | 'manual'>('none');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [isPhotoOpen, setIsPhotoOpen] = useState(false);
+  /** 写真の追加・読み取りの結果（写真の下に出す） */
+  const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+  const [isCameraOpen, setCameraOpen] = useState(false);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
 
   if (meal === undefined || !settings || !day) return null;
   if (meal === null || meal.deleted === 1) {
@@ -79,24 +86,67 @@ export function MealDetailPage() {
 
   const target = day.target.ok ? day.target.result.target : null;
 
+  /** 読み取りの結果を伝える。読み取れたら読み取り結果の画面へ */
+  const showOutcome = (r: RecordOutcome) => {
+    if (r.kind === 'pending') setPhotoMessage(r.message);
+    else if (r.kind === 'notFood') {
+      setPhotoMessage(`料理が見つかりませんでした：${r.reason}`);
+      if (!r.keptMealId) void navigate('/', { replace: true });
+    } else void navigate(`/meal/${meal.id}/result`, { replace: true });
+  };
+
+  /** 写真を追加して読み取る（F-REC-12） */
+  const addPhoto = async (file: Blob) => {
+    setBusy(true);
+    setPhotoMessage(null);
+    try {
+      showOutcome(await addPhotoAndAnalyze(meal.id, file));
+    } catch (error) {
+      console.error(error);
+      setPhotoMessage('写真を読み込めませんでした。別の写真で試してください。');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onPick = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) void addPhoto(file);
+  };
+
   return (
     <div className={styles.page}>
       <PageHeader title={`${MEAL_TYPE_LABELS[meal.mealType]}の詳細`} />
       <Card>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <button type="button" onClick={() => setIsPhotoOpen((v) => !v)} aria-label="写真を大きく表示" style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}>
-            <Thumbnail blob={meal.thumbnail} alt="食事の写真" size={isPhotoOpen ? 280 : 88} isPending={meal.status === 'pending'} />
-          </button>
-          {!isPhotoOpen && (
-            <div>
-              <div>{formatDateTime(meal.eatenAt)}</div>
-              {meal.inputText && <Sub>「{meal.inputText}」</Sub>}
-            </div>
-          )}
+        <div style={{ marginBottom: 8 }}>
+          <div>{formatDateTime(meal.eatenAt)}</div>
+          {meal.inputText && <Sub>「{meal.inputText}」</Sub>}
         </div>
+        <PhotoStrip
+          photos={meal.photos}
+          label={`${MEAL_TYPE_LABELS[meal.mealType]}の写真`}
+          disabled={busy}
+          onTake={() => (canUseInAppCamera() ? setCameraOpen(true) : cameraRef.current?.click())}
+          onPick={() => photoRef.current?.click()}
+          onRemove={(photoId) => void removePhoto(db, meal.id, photoId, now())}
+        />
+        {busy && <Sub>読み取っています…</Sub>}
+        {photoMessage && <Sub>{photoMessage}</Sub>}
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" className={styles.hiddenInput} onChange={onPick} />
+        <input ref={photoRef} type="file" accept="image/*" className={styles.hiddenInput} onChange={onPick} />
+        {isCameraOpen && (
+          <CameraOverlay
+            onClose={() => setCameraOpen(false)}
+            onCapture={(photo) => {
+              setCameraOpen(false);
+              void addPhoto(photo);
+            }}
+          />
+        )}
       </Card>
 
-      {meal.status === 'pending' && (
+      {hasPendingInput(meal) && (
         <Card tone="tint">
           <p>この食事は読み取り待ちです。</p>
           <Button
@@ -106,11 +156,7 @@ export function MealDetailPage() {
               setBusy(true);
               const r = await analyzePending(meal.id);
               setBusy(false);
-              if (r.kind === 'pending') setMessage(r.message);
-              else if (r.kind === 'notFood') {
-                setMessage(`料理が見つかりませんでした：${r.reason}`);
-                if (!r.keptMealId) void navigate('/', { replace: true });
-              } else void navigate(`/meal/${meal.id}/result`, { replace: true });
+              showOutcome(r);
             }}
           >
             {busy ? '読み取り中…' : '今すぐ読み取る'}

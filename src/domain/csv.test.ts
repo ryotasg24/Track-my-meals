@@ -12,7 +12,7 @@ const meal = (over: Partial<Meal>): Meal => ({
   mealType: 'lunch',
   status: 'done',
   inputText: null,
-  thumbnail: null,
+  photos: [],
   advice: null,
   items: [
     {

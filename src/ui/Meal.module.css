@@ -86,3 +86,87 @@
   font-weight: 500;
   color: var(--color-text-sub);
 }
+
+/* 写真の枚数（2枚以上のとき。F-REC-12） */
+.countBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-primary-strong);
+  color: var(--color-on-primary-strong);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+}
+
+/* 写真の並び（読み取り結果・食事の詳細） */
+.photoStrip {
+  list-style: none;
+  margin: 0;
+  padding: 4px 4px 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.photoButton {
+  border: none;
+  background: none;
+  padding: 0;
+  border-radius: 16px;
+  cursor: pointer;
+  outline-offset: 2px;
+}
+
+.photoSelected {
+  outline: 3px solid var(--color-primary-strong);
+}
+
+.photoAdd {
+  width: 72px;
+  height: 72px;
+  border: 2px dashed var(--color-primary-track);
+  border-radius: 14px;
+  background: none;
+  color: var(--color-primary-strong);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.photoAdd:disabled {
+  opacity: 0.5;
+}
+
+.photoLarge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.photoRemove {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  color: var(--color-danger);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}

@@ -3,6 +3,7 @@
  */
 import { Link } from 'react-router';
 import { formatTime } from '../domain/format';
+import { hasPendingInput } from '../domain/mealPhotos';
 import { MEAL_TYPE_LABELS } from '../domain/mealType';
 import { formatNutrient, mealTotal } from '../domain/nutrition';
 import type { Meal } from '../domain/types';
@@ -22,9 +23,10 @@ export function MealRow({ meal }: { meal: Meal }) {
   return (
     <Link to={`/meal/${meal.id}`} className={styles.row}>
       <Thumbnail
-        blob={meal.thumbnail}
+        photo={meal.photos[0] ?? null}
         alt={`${MEAL_TYPE_LABELS[meal.mealType]}の写真：${summary}`}
-        isPending={meal.status === 'pending'}
+        isPending={hasPendingInput(meal)}
+        count={meal.photos.length}
       />
       <div className={styles.rowMain}>
         <span className={styles.typePill}>

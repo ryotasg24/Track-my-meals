@@ -1,6 +1,7 @@
 /**
  * ホームのお知らせ（基本設計書 3.3 画面1、5.14）。撮影ボタンが押し出されないよう、最大2件まで表示する。
  */
+import { hasPendingInput } from '../../domain/mealPhotos';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { shouldRemindBackup, shouldRemindWeight } from '../../domain/reminders';
@@ -24,7 +25,7 @@ export function HomeNotices({ today }: { today: string }) {
 
   if (!settings || !meals || !weights || !meta || !key) return null;
 
-  const pending = meals.filter((m) => m.deleted === 0 && m.status === 'pending');
+  const pending = meals.filter((m) => m.deleted === 0 && hasPendingInput(m));
   const notices: { id: string; tone: 'warn' | 'info'; body: ReactNode }[] = [];
 
   if (pending.length > 0) {

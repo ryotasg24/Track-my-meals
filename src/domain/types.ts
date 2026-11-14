@@ -62,19 +62,38 @@ export interface Meal extends SyncFields {
   /** 記録日（区切りの時刻を考慮した日付。基本設計書 5.1） */
   localDate: string;
   mealType: MealType;
-  /** pending：読み取り待ち（品目はまだない）、done：記録済み */
+  /**
+   * pending：まだ一度も読み取っていない（品目は、先に追加したよく食べるもの・手入力だけ）、done：記録済み。
+   * 記録済みの食事に写真を追加した場合は done のまま、その写真だけを読み取り待ちにする（MealPhoto.isPending）。
+   */
   status: 'pending' | 'done';
   inputText: string | null;
-  /** 縮小した写真（長い辺320px、JPEG） */
-  thumbnail: Blob | null;
+  /** 写真（撮った順。最大6枚。2026-11-14 に1枚の thumbnail から変更。基本設計書 4.3） */
+  photos: MealPhoto[];
   items: MealItem[];
   advice: Advice | null;
 }
 
-/** 読み取り待ちの写真（AIに送る大きさのもの） */
-export interface MealImage {
+/** 写真のデータ。新しい写真はバイト列で保存する（iPhoneで、保存した直後のBlobが表示できないことがあるため）。移行した古い写真はBlobのまま */
+export type PhotoData = ArrayBuffer | Blob;
+
+/** 食事の写真（縮小したもの） */
+export interface MealPhoto {
+  id: string;
+  /** 長い辺320px、JPEG */
+  thumbnail: PhotoData;
+  mimeType: string;
+  /** まだAIで読み取っていない写真 */
+  isPending: boolean;
+  createdAt: number;
+}
+
+/** 読み取り待ちの写真（AIに送る大きさのもの）。読み取りが終わったら消す */
+export interface PhotoImage {
+  photoId: string;
   mealId: string;
-  image: Blob;
+  image: PhotoData;
+  mimeType: string;
 }
 
 export interface Favorite extends SyncFields {

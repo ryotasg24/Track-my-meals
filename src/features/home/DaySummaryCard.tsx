@@ -1,6 +1,7 @@
 /**
  * 今日（または指定した日）の状況：カロリーの輪と栄養素のタイル（F-DAY-01、02）。
  */
+import { hasPendingInput } from '../../domain/mealPhotos';
 import { Link } from 'react-router';
 import { Card, Sub } from '../../ui/Card';
 import { CalorieRing } from '../../ui/nutrition/CalorieRing';
@@ -17,7 +18,7 @@ const MISSING_LINK = { profile: '/settings', weight: '/weight', plan: '/target' 
 
 export function DaySummaryCard({ day }: { day: DayData }) {
   const target = day.target.ok ? day.target.result.target : null;
-  const hasPending = day.meals.some((m) => m.status === 'pending');
+  const hasPending = day.meals.some((m) => hasPendingInput(m));
   return (
     <Card>
       <Link to="/target" style={{ color: 'inherit', textDecoration: 'none' }} aria-label="目標の画面へ">
